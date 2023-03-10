@@ -12,11 +12,13 @@ stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.DEBUG)
 
 # Set up the log message format
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 stream_handler.setFormatter(formatter)
 
 # Add the stream handler to the logger
 logger.addHandler(stream_handler)
+
 
 def extract_images_from_page(url):
     """
@@ -25,8 +27,16 @@ def extract_images_from_page(url):
     :return: A list of image URLs found on the webpage.
     """
     images = []
-    response = requests.get(url)
+    try:
+        response = requests.get(url)
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"could not retrieve {url}. {e}")
+        return
     soup = BeautifulSoup(response.content, 'html.parser')
+    if response.status_code != 200:
+        logger.warning(
+            f"Error: could not retrieve {url}. Response code {response.status_code}")
+        return
     img_tags = soup.find_all('img')
     for img in img_tags:
         src = img.get('src')
@@ -76,6 +86,11 @@ def crawl_webpage(start_url, depth, output_file='results.json'):
     results = []
     visited = set()
     urls_to_crawl = [(start_url, 0)]
+
+    if depth < 0:
+        logger.error("depth must be a positive integer")
+        return
+
     while urls_to_crawl:
         url, current_depth = urls_to_crawl.pop(0)
         if current_depth > depth:
@@ -85,6 +100,8 @@ def crawl_webpage(start_url, depth, output_file='results.json'):
         visited.add(url)
         logger.debug(f"Extracting images from {url}")
         images = extract_images_from_page(url)
+        if not images:
+            continue
         for image in images:
             results.append({
                 'image_url': image,
