@@ -2,7 +2,21 @@ import argparse
 import json
 import requests
 from bs4 import BeautifulSoup
+import logging
 
+logger = logging.getLogger('web_crawler')
+logger.setLevel(logging.DEBUG)
+
+# Set up the stream handler
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.DEBUG)
+
+# Set up the log message format
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+stream_handler.setFormatter(formatter)
+
+# Add the stream handler to the logger
+logger.addHandler(stream_handler)
 
 def extract_images_from_page(url):
     """
@@ -69,6 +83,7 @@ def crawl_webpage(start_url, depth, output_file='results.json'):
         if url in visited:
             continue
         visited.add(url)
+        logger.debug(f"Extracting images from {url}")
         images = extract_images_from_page(url)
         for image in images:
             results.append({
@@ -76,11 +91,14 @@ def crawl_webpage(start_url, depth, output_file='results.json'):
                 'source_url': url,
                 'depth': current_depth
             })
+        logger.debug(f"Extracting links from {url}")
         links = get_links_from_page(url)
         for link in links:
             if link not in visited:
                 urls_to_crawl.append((link, current_depth + 1))
+        logger.debug(f"Found {len(links)} links on {url}")
     save_results_to_file(results, output_file)
+    logger.info(f"Saved {len(results)} results to {output_file}")
 
 
 if __name__ == '__main__':
