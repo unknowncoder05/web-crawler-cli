@@ -19,24 +19,13 @@ stream_handler.setFormatter(formatter)
 # Add the stream handler to the logger
 logger.addHandler(stream_handler)
 
-
-def extract_images_from_page(url):
+def extract_images_from_page(soup):
     """
     Extracts image URLs from a given webpage.
     :param url: The URL of the webpage to extract images from.
     :return: A list of image URLs found on the webpage.
     """
-    images = []
-    try:
-        response = requests.get(url)
-    except requests.exceptions.RequestException as e:
-        logger.warning(f"could not retrieve {url}. {e}")
-        return
-    soup = BeautifulSoup(response.content, 'html.parser')
-    if response.status_code != 200:
-        logger.warning(
-            f"Error: could not retrieve {url}. Response code {response.status_code}")
-        return
+    images = []    
     img_tags = soup.find_all('img')
     for img in img_tags:
         src = img.get('src')
@@ -45,15 +34,13 @@ def extract_images_from_page(url):
     return images
 
 
-def get_links_from_page(url):
+def get_links_from_page(url, soup):
     """
     Extracts links from a given webpage.
     :param url: The URL of the webpage to extract links from.
     :return: A list of links found on the webpage.
     """
     links = []
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
     a_tags = soup.find_all('a')
     for a in a_tags:
         href = a.get('href')
@@ -99,7 +86,17 @@ def crawl_webpage(start_url, depth, output_file='results.json'):
             continue
         visited.add(url)
         logger.debug(f"Extracting images from {url}")
-        images = extract_images_from_page(url)
+        try:
+            response = requests.get(url)
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"could not retrieve {url}. {e}")
+            continue
+        if response.status_code != 200:
+            logger.warning(
+                f"Error: could not retrieve {url}. Response code {response.status_code}")
+            continue
+        soup = BeautifulSoup(response.content, 'html.parser')
+        images = extract_images_from_page(soup)
         if not images:
             continue
         for image in images:
@@ -109,7 +106,7 @@ def crawl_webpage(start_url, depth, output_file='results.json'):
                 'depth': current_depth
             })
         logger.debug(f"Extracting links from {url}")
-        links = get_links_from_page(url)
+        links = get_links_from_page(url, soup)
         for link in links:
             if link not in visited:
                 urls_to_crawl.append((link, current_depth + 1))
